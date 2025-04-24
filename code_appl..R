@@ -1,5 +1,8 @@
+#before apporaching, please load dataset into the working directory
+
 library(readxl)
 library(ade4)
+library(tidyr)
 
 # Load all sheets into a list
 fourth_corner <- lapply(c("sp", "env", "traits"), function(x) read_excel("fourth_corner.xlsx", sheet = x))
@@ -16,17 +19,11 @@ fourth_corner$env <- as.data.frame(lapply(fourth_corner$env, function(x) {
   if (is.character(x)) as.factor(x) else x
 }))
 
+fourth_corner$traits <- as.data.frame(fourth_corner$traits)
+
 fourth_corner$env$Elevation <- as.numeric(as.character(fourth_corner$env$Elevation))
 fourth_corner$env <- fourth_corner$env[, !names(fourth_corner$env)]
 fourth_corner$traits$Wingspan <- as.numeric(gsub(",", ".", fourth_corner$traits$Wingspan))
-
-# Convert numeric categorical columns to factors
-fourth_corner$env$`Movement pattern` <- as.factor(fourth_corner$env$`Movement pattern`)
-fourth_corner$env$Treatment <- as.factor(fourth_corner$env$Treatment)
-fourth_corner$env$Season <- as.factor(fourth_corner$env$Season)
-
-fourth_corner$traits <- as.data.frame(fourth_corner$traits)
-fourth_corner$env <- as.data.frame(fourth_corner$env)
 
 fourth_corner$sp[is.na(fourth_corner$sp)] <- 0
 fourth_corner$traits[is.na(fourth_corner$traits)] <- 0
@@ -42,7 +39,6 @@ nrepet <- 999
 four.comb.aravo <- fourthcorner(fourth_corner$env, fourth_corner$sp,
                                 fourth_corner$traits, modeltype = 6, p.adjust.method.G = "none",
                                 p.adjust.method.D = "none", nrepet = nrepet)
-
 
 plot(four.comb.aravo, alpha = 0.05, stat = "D2")
 plot(four.comb.aravo, x.rlq = rlq.aravo, alpha = 0.05,
