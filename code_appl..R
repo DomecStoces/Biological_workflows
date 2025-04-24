@@ -49,10 +49,12 @@ Srlq <- fourthcorner2(fourth_corner$env, fourth_corner$sp,
                       modeltype = 6, p.adjust.method.G = "fdr", nrepet = nrepet)
 Srlq$trRLQ
 
+#TIFF extraction of table
 tiff('table.tiff', units="in", width=8, height=10, res=600)
 plot(four.comb.aravo, alpha = 0.05, stat = "D2")
 dev.off()
 
+#PDF is also possible-can be further changed in Adobe Illustrator
 pdf('table.pdf', width=8, height=10)
 plot(four.comb.aravo, alpha = 0.05, stat = "D2")
 dev.off()
