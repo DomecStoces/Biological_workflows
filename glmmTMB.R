@@ -212,6 +212,34 @@ d <- ggplot(emm_df, aes(x = Treatment, y = response,
 # Print plot
 print(d)
 
+#Overall Species Richness
+species_richness_data <- dataset6 %>%
+  group_by(Trap, Treatment, Month, Movement.pattern) %>%
+  summarize(
+    SpeciesRichness = n_distinct(Species),  # Count of unique species
+    Abundance = sum(Number, na.rm = TRUE),  # Sum of abundances (Number)
+    .groups = "drop"
+  )
+
+# Fit the model
+model5 <- glmmTMB(SpeciesRichness ~ Treatment + Movement.pattern + (1 | Trap)+(1|Month), 
+                  data = species_richness_data, 
+                  family = nbinom2(link = "log"))
+summary(model5)
+
+Anova(model2)
+
+species_richness_data1 <- dataset3 %>%
+  group_by(Trap, Treatment, Season, Movement.pattern) %>%
+  summarize(
+    SpeciesRichness = n_distinct(Species),  # Count of unique species
+    Abundance = sum(Number, na.rm = TRUE),  # Sum of abundances (Number)
+    .groups = "drop")
+model5 <- glmmTMB(SpeciesRichness ~ Treatment + Movement.pattern*Season + (1 | Trap), 
+                  data = species_richness_data1, 
+                  family = nbinom2(link = "log"))
+
+##########################################################################################
 # Prepare data for modeling SpeciesRichness ~ Treatment * Movement.pattern
 species_richness_data <- dataset6 %>%
   group_by(Trap, Treatment, Month, Movement.pattern, Functional.group) %>%
@@ -563,29 +591,6 @@ summary(contrast_results)
   contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
   summary(contrast_results)
   
-  ###############################################################################################
-  library(sjPlot)
-  
-  # Create a formatted table of results
-  tab_model(models[["Detritivore"]][["Spring"]],
-            show.ci = TRUE, show.se = TRUE, show.aic = TRUE,
-            title = "GLMM Detritivore")
-  
-  library(emmeans)
-  
-  
-  # Generate emmeans for the interaction term (Movement.pattern * Season)
-  interaction_emm <- emmeans(models[["Detritivore"]][["Ecotone"]], 
-                             ~ Movement.pattern * Season)
-  
-  # Perform pairwise comparisons only between `Along` and `Across` within each season
-  pairwise_interaction <- contrast(interaction_emm, 
-                                   method = "pairwise", 
-                                   by = "Season")
-  
-  # Summarize the results
-  summary(pairwise_interaction)
- 
   ############################################################################################
   #indicspecies - multipatt: Multi-level pattern analysis
   # Aggregate data
@@ -631,122 +636,6 @@ summary(contrast_results)
   
   # Summary with adjusted p-values
   summary_results <- summary(results)
-  
-  ############################################################################################
-  # List to store models
-  models <- list()
-  
-  # Loop through each functional group
-  groups <- unique(dataset3$Functional.group)
-  
-  for (group in groups) {
-    # Filter data for the current functional group
-    group_data <- dataset3 %>% filter(Functional.group == group)
-    
-    # Fit Negative Binomial GLMM (use group_data, not dataset3)
-    models[[group]] <- glmmTMB(Number ~ Treatment * Movement.pattern + (1 | Trap) + (1 | Month), 
-                               data = group_data, 
-                               family = nbinom2(link = "log"))
-    
-    # Print a message after fitting the model for this group
-    cat("Model fitted for Functional Group:", group, "\n")
-  }
-  
-  summary(models[["Omnivore"]])
-  
-  Anova(model8, type = "III")
-  
-  # Generate predictions using ggpredict
-  predictions <- ggpredict(model8, terms = c("Treatment", "Movement.pattern"))
-  
-  # Inspect the predictions
-  print(predictions)
-  # Plot with ggplot2
-  ggplot(predictions, aes(x = x, y = predicted, color = group)) +
-    geom_point(position = position_dodge(0.2), size = 3) +  # Predicted points
-    geom_errorbar(aes(ymin = conf.low, ymax = conf.high), 
-                  position = position_dodge(0.2), 
-                  width = 0.2) +  # Error bars
-    labs(
-      title = "Predicted Counts with CIs for Omnivore Functional Group",
-      x = "Treatment",
-      y = "Predicted Count",
-      color = "Movement Pattern"
-    ) +
-    theme_minimal()
-  
-  # Compute estimated marginal means
-  emmeans_results <- emmeans(model9, ~ Movement.pattern | Treatment)
-  
-  # Apply pairwise contrasts with Sidak adjustment
-  contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-  summary(contrast_results)
-  
-  # FOR GENERAL APPROACH
-  # Generate predictions for a specific functional group (e.g., "Detritivore")
-  predictions <- ggpredict(model9, terms = c("Treatment", "Movement.pattern"))
-  
-  # Convert predictions to a data frame for ggplot
-  results_data <- as.data.frame(predictions)
-  
-  # Reorder levels for Movement.pattern or any other grouping variable
-  results_data$group <- factor(results_data$group, levels = c("Along", "Across"))
-  
-  # Graph creation
-  d<-ggplot(results_data, aes(x = x, y = predicted, color = group, group = group)) +
-    geom_point(position = position_dodge(width = 0.4), size = 3) + # Add points with dodge
-    geom_errorbar(aes(ymin = conf.low, ymax = conf.high), 
-                  position = position_dodge(width = 0.4), 
-                  width = 0.2) + # Add error bars with dodge
-    geom_line(position = position_dodge(width = 0.4), linewidth = 1) + # Connect points with lines
-    labs(
-      title = "Predicted Values with Confidence Intervals",
-      x = "Treatment",
-      y = "Predicted Number",
-      color = "Movement Pattern"
-    ) +
-    theme_minimal() +
-    theme(
-      panel.grid.major = element_line(color = "gray90"),
-      panel.grid.minor = element_blank()
-    )
-  
-  tiff('Herbivore_negative_binomial.tiff',units="in",width=8,height=7,bg="white",res=600)
-  d
-  dev.off()
-  #Post-hoc Pairwise comparisons with applied Sidak correction for multiple comparisons to control the family-wise error rate
-  # Compute estimated marginal means
-  emmeans_results <- emmeans(model4, ~ Movement.pattern | Season)
-  
-  # Apply pairwise contrasts with Sidak adjustment
-  contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-  summary(contrast_results)
-  #######################################################################################################
-  species_richness_data <- dataset6 %>%
-    group_by(Trap, Treatment, Month, Movement.pattern) %>%
-    summarize(
-      SpeciesRichness = n_distinct(Species),  # Count of unique species
-      Abundance = sum(Number, na.rm = TRUE),  # Sum of abundances (Number)
-      .groups = "drop"
-    )
-  
-  # Fit the model
-  model5 <- glmmTMB(SpeciesRichness ~ Treatment + Movement.pattern + (1 | Trap)+(1|Month), 
-                    data = species_richness_data, 
-                    family = nbinom2(link = "log"))
-  summary(model5)
-  
-  Anova(model2)
-  
-  species_richness_data1 <- dataset3 %>%
-    group_by(Trap, Treatment, Season, Movement.pattern) %>%
-    summarize(
-      SpeciesRichness = n_distinct(Species),  # Count of unique species
-      Abundance = sum(Number, na.rm = TRUE),  # Sum of abundances (Number)
-      .groups = "drop")
-  model5 <- glmmTMB(SpeciesRichness ~ Treatment + Movement.pattern*Season + (1 | Trap), 
-                    data = species_richness_data1, 
-                    family = nbinom2(link = "log"))
 
   #######################################################################################################
   #To support results from CANOCO5, we can calculate FD Rao as rao.diversity
