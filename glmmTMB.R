@@ -22,6 +22,21 @@ summarise(
 # Print the results
 print(group_stats)
 
+#What family to choose?
+# Fit the Poisson model
+poisson_model <- glmmTMB(SpeciesRichness ~ Treatment + Movement.pattern * Season + (1 | Trap), 
+                         data = species_richness_data, 
+                         family = poisson(link = "log"))
+poisson_model <- glmmTMB(Number~ Treatment*Movement.pattern + (1 | Trap)+(1|Month), 
+                         data = dataset7, 
+                         family = poisson(link = "log"))
+
+# Calculate overdispersion statistic
+overdispersion_stat <- sum(residuals(poisson_model, type = "pearson")^2) / df.residual(poisson_model)
+
+# Print the overdispersion statistic
+print(overdispersion_stat)
+
 library(glmmTMB)
 library(lme4)
 library(MASS)
@@ -40,6 +55,8 @@ dataset6$Clearing <- as.factor(dataset6$Clearing)
 dataset6$Trap <- as.factor(dataset6$Trap)
 dataset6$Movement.pattern <- as.factor(dataset6$Movement.pattern)
 dataset6$Treatment <- as.factor(dataset6$Treatment)
+
+#Total Abundance of ground-dwelling arthropods
 
 dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
 dataset6$Treatment <- factor(dataset6$Treatment, 
@@ -99,7 +116,6 @@ d<-ggplot(emm_df, aes(x = Treatment, y = response,
   scale_color_manual(values = c("Across" = "grey60", "Along" = "black")) + 
   scale_linetype_manual(values = c("Across" = "dashed", "Along" = "solid"))
 
-
 tiff('Total_abundance.tiff',units="in",width=6,height=5,bg="white",res=300)
 d
 dev.off()
@@ -113,7 +129,7 @@ summary(contrast_results)
 
 #######
 
-#Variant for Treatment*Movement.pattern+(1|Month)
+#Variant for Treatment*Movement.pattern+(1|Month) separately for each Functional group
 
 # List to store models
 models <- list()
@@ -393,15 +409,10 @@ summary(contrast_results)
   d
   dev.off()
   
-  ,expand = expansion(mult = c(0))
-  emmeans_results <- emmeans(models[["Predator"]][["Spring"]], ~ Movement.pattern|Treatment)
-  
   # Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
   contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
   summary(contrast_results)
-  
-  emtrends(models[["Predator"]][["Autumn"]], ~ Treatment, var = "Seedlings")
-  
+
   ###############################################################################################
   #MODEL for interaction of SpeciesRichness~Movement*Treatment divided into Season
   species_richness_data <- dataset6 %>%
@@ -486,7 +497,6 @@ summary(contrast_results)
   # Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
   contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
   summary(contrast_results)
-  
   
   emm <- emmeans(models2[["Detritivore"]][["Autumn"]], ~ Treatment*Movement.pattern, type = "response")
   emm_df <- as.data.frame(emm)
@@ -575,22 +585,6 @@ summary(contrast_results)
   
   # Summarize the results
   summary(pairwise_interaction)
-  
-  ###############################################################################################
-  #What family to choose?
-  # Fit the Poisson model
-  poisson_model <- glmmTMB(SpeciesRichness ~ Treatment + Movement.pattern * Season + (1 | Trap), 
-                           data = species_richness_data, 
-                           family = poisson(link = "log"))
-  poisson_model <- glmmTMB(Number~ Treatment*Movement.pattern + (1 | Trap)+(1|Month), 
-                           data = dataset7, 
-                           family = poisson(link = "log"))
-  
-  # Calculate overdispersion statistic
-  overdispersion_stat <- sum(residuals(poisson_model, type = "pearson")^2) / df.residual(poisson_model)
-  
-  # Print the overdispersion statistic
-  print(overdispersion_stat)
  
   ############################################################################################
   #indicspecies - multipatt: Multi-level pattern analysis
@@ -864,9 +858,6 @@ summary(contrast_results)
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 0.5), # Adjust x-axis label angle and position
       axis.title.x = element_text(margin = margin(t = +10)) # Lower the x-axis title
     )
-  
-  #######################################################################################################
-  
   
   #######################################################################################################
   #To support results from CANOCO5, we can calculate FD Rao as rao.diversity
