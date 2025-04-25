@@ -132,7 +132,7 @@ species_richness_data <- dataset6 %>%
     .groups = "drop"
   )
 
-# Calculating Species richness for Variant Treatment*Movement.pattern
+# Calculating Species richness for Variant Treatment*Movement.pattern+(1|Month)
 # Initialize a list to store models
 models2 <- list()
 
