@@ -1,4 +1,4 @@
-# Histogram Number pro každou funkční skupinu
+# Histogram Number for each functional group of ground-dwelling arthropods
 ggplot(dataset2[dataset2$Functional.group == "Detritivore", ], aes(x = Abundance)) +
   geom_histogram(binwidth = 1, color = "black", fill = "blue") +
   labs(
