@@ -553,7 +553,7 @@ prior = c(
   emtrends(models[["Predator"]][["Autumn"]], ~ Treatment, var = "Seedlings")
   
   ###############################################################################################
-  #MODEL pro stanovení interakce SpeciesRichness~Movement*Treatment rozdělených do Season!! final!!
+  #MODEL for interaction of SpeciesRichness~Movement*Treatment divided into Season
   species_richness_data <- dataset6 %>%
     group_by(Trap, Treatment, Season, Movement.pattern, Functional.group) %>%
     summarize(
