@@ -31,6 +31,7 @@ library(tidyr)
 library(ggeffects)
 library(car)
 library(emmeans)
+library(sjPlot)
 
 # Categorical variable with Trap ID (unique for each trap) same as Clearing (1 or 2) and Movement pattern
 dataset6$Clearing <- as.factor(dataset6$Clearing)
@@ -38,6 +39,7 @@ dataset6$Trap <- as.factor(dataset6$Trap)
 dataset6$Movement.pattern <- as.factor(dataset6$Movement.pattern)
 dataset6$Treatment <- as.factor(dataset6$Treatment)
 
+#Variant for Treatment*Movement.pattern
 
 # List to store models
 models <- list()
@@ -120,15 +122,6 @@ d <- ggplot(emm_df, aes(x = Treatment, y = response,
 # Print plot
 print(d)
 
-summary(models[["Predator"]])
-Anova(models[["Saproxylic"]],type="III")
-
-
-emmeans_results <- emmeans(models[["low"]], ~ Movement.pattern | Treatment)
-contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-summary(contrast_results)
-
-
 # Prepare data for modeling SpeciesRichness ~ Treatment * Movement.pattern
 species_richness_data <- dataset6 %>%
   group_by(Trap, Treatment, Month, Movement.pattern, Functional.group) %>%
@@ -177,35 +170,12 @@ for (group2 in functional_groups2) {
 summary(models2[["Predator"]])
 Anova(models2[["Herbivore"]],type="III")
 
-
 emmeans_results <- emmeans(models2[["Herbivore"]], ~ Movement.pattern | Treatment)
 contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
 summary(contrast_results)
 
 
-library(sjPlot)
-# Create a formatted table of results
-tab_model(mod14,
-          show.ci = TRUE, show.se = TRUE, show.aic = TRUE,
-          title = "GLMM Detritivore")
 
-library(car)
-Anova(models[["Predator"]], type = "III")
-
-full_model <- glmmTMB(Number ~ Treatment * Movement.pattern + (1 | Trap)+(1|Month), 
-                      data = dataset4, 
-                      family = nbinom2(link = "sqrt"))
-no_season <- update(full_model, . ~ . - Season - Season:Movement.pattern)
-no_movement <- update(full_model, . ~ . - Movement.pattern - Season:Movement.pattern)
-anova(full_model, no_season, test = "Chisq")
-anova(full_model, no_movement, test = "Chisq")
-interaction_model <- glmmTMB(Number ~ Season * Movement.pattern + (1 | Trap), 
-                             data = detritivore_data, 
-                             family = nbinom2(link = "log"))
-anova(full_model, interaction_model, test = "Chisq")
-
-no_treatment <- update(full_model, . ~ . - Treatment)
-anova(full_model, no_treatment, test = "Chisq")
 
 # Graphical visualization
 library(effects)
@@ -273,7 +243,7 @@ total_count <- sum(observation_counts$Total_Specimens)
 print(total_count)
 
 ###############################################################################################
-# Po zkonduktování modelu následuje check sandardised residuals
+# Check for sandardised residuals
 library(DHARMa)
 
 # Example: Check residuals for the Predator group model
@@ -312,165 +282,6 @@ prior = c(
   detritivore_data$Treatment <- relevel(detritivore_data$Treatment, ref = "Forest.interior")
   
   ###############################################################################################
-  dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
-  dataset6$Treatment <- factor(dataset6$Treatment, 
-                               levels = c("Forest interior", "Ecotone", "Retention clearcut"))
-  levels(dataset6$Treatment)
-  
-  #MODEL pro stanovení interakce Number~Movement*Treatment rozdělených do Season!! final!!
-  # List to store models
-  models <- list()
-  
-  # Get unique Functional Groups
-  functional_groups <- unique(dataset6$Functional.group)
-  
-  # Loop through each Functional Group
-  for (group in functional_groups) {
-    # Filter data for the current Functional Group
-    group_data <- dataset6 %>% filter(Functional.group == group)
-    
-    # Get unique Seasons
-    seasons <- unique(group_data$Season)
-    
-    # Initialize a nested list for the group
-    models[[group]] <- list()
-    
-    # Loop through each Season
-    for (season in seasons) {
-      # Filter data for the current Season
-      season_data <- group_data %>% filter(Season == season)
-      
-      # Fit the Negative Binomial GLMM
-      model <- glmmTMB(
-        Number ~ Treatment*Movement.pattern + (1 | Trap),
-        data = season_data,
-        family = nbinom2(link = "sqrt")
-      )
-      
-      # Store the model
-      models[[group]][[season]] <- model
-      
-      # Print a message after fitting the model
-      cat("Model fitted for Functional Group:", group, ", and Season:", season, "\n")
-    }
-  }
-  
-  # Example: Access a summary for a specific Functional Group and Season
-  # Replace "Detritivore" and "Spring" with your specific values
-  summary(models[["Predator"]][["Spring"]])
-  Anova(models[["Predator"]][["Autumn"]],type = "III")
-  
-  # Initialize list to store fitted models
-  models <- list()
-  
-  # Get unique Functional Groups
-  functional_groups <- unique(dataset6$Functional.group)
-  
-  # Loop through each Functional Group
-  for (group in functional_groups) {
-    
-    # Filter data for current Functional Group
-    group_data <- dataset6 %>% filter(Functional.group == group)
-    
-    # Get unique Treatments for the current Functional Group
-    treatments <- unique(group_data$Treatment)
-    
-    # Create nested list to store models per treatment
-    models[[group]] <- list()
-    
-    # Loop through each Treatment
-    for (treatment in treatments) {
-      
-      # Subset data for current Treatment
-      treatment_data <- group_data %>% filter(Treatment == treatment)
-      
-      # Fit GLMM with Negative Binomial distribution (sqrt link)
-      model <- glmmTMB(
-        Number ~ Treatment * Movement.pattern + (1 | Trap)+(1|Month),
-        data = treatment_data,
-        family = nbinom2(link = "sqrt")
-      )
-      
-      # Store model
-      models[[group]][[treatment]] <- model
-      
-      # Inform user
-      cat("Model fitted for Functional Group:", group, "and Treatment:", treatment, "\n")
-    }
-  }
-  
-  # Example: View summary of a specific model
-  # Replace "Detritivore" and "Forest.interior" with your actual values
-  summary(models[["Detritivore"]][["Ecotone"]])
-  Anova(models[["Detritivore"]][["Ecotone"]],type = "III")
-  
-  emmeans_results <- emmeans(models[["Predator"]], ~ Movement.pattern|Treatment)
-  
-  # Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
-  contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-  summary(contrast_results)
-  
-  # Estimated marginal means from the model
-  emm <- emmeans(models[["Predator"]], ~ Movement.pattern * Treatment, type = "response")
-  emm_df <- as.data.frame(emm)
-  
-  d <- ggplot(emm_df, aes(x = Treatment, y = response, 
-                          color = Movement.pattern, 
-                          group = Movement.pattern)) +
-    # Add points
-    geom_point(position = position_dodge(width = 0.5), size = 3) +
-    
-    # Add error bars
-    geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), 
-                  width = 0.2, 
-                  linewidth = 0.8,
-                  position = position_dodge(width = 0.5)) +
-    
-    # Add lines
-    geom_line(aes(linetype = Movement.pattern), 
-              position = position_dodge(width = 0.5),
-              linewidth = 0.8) +
-    
-    # Axis labels
-    labs(
-      y = "Predicted N° of individuals",
-      x = NULL
-    ) +
-    
-    # Y-axis settings
-    scale_y_continuous(
-      limits = c(0, 14.5),
-      labels = function(x) ifelse(x == 0, "0", x)
-    ) +
-    
-    # Color and line type customizations
-    scale_color_manual(values = c("Across" = "grey60", "Along" = "black")) + 
-    scale_linetype_manual(values = c("Across" = "dashed", "Along" = "solid")) +
-    
-    # Theme settings
-    theme_minimal(base_family = "Arial") +
-    theme(
-      panel.border = element_rect(color = "black", fill = NA),
-      strip.text = element_text(size = 25),
-      strip.background = element_rect(fill = "grey90"),
-      axis.text.x = element_text(size = 20, angle = -45, hjust = 0, vjust = 1),
-      axis.text.y = element_text(size = 20),
-      axis.title.y = element_blank(),
-      axis.title.x = element_blank(),
-      legend.position = "none",
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.ticks = element_line(color = "black"),
-      axis.line = element_line(color = "black"),
-      plot.margin = margin(t = 20, r = 20, b = 10, l = 3)
-    )
-  
-  # Print plot
-  print(d)
-  
-  
-  
-  
   
   #Likelihood Ratio Test (LRT) for Predictor Significance: For testing the overall significance of predictors or interactions
   # Full model
