@@ -7,6 +7,7 @@ library(tidyr)
 library(lme4)
 library(lmerTest)
 library(ggplot2)
+library(adiv)
 
 dataset6 <- as.data.frame(dataset6)
 
@@ -60,7 +61,7 @@ fit_saproxylic <- lmer(Saproxylic_1 ~ Treatment * Movement.pattern + (1|Trap), d
 
 #Post-hoc Pairwise comparisons with applied Sidak correction for multiple comparisons to control the family-wise error rate
 # Compute estimated marginal means
-emmeans_results <- emmeans(fit_detritivore, ~ Movement.pattern | Treatment)
+emmeans_results <- emmeans(fit_saproxylic, ~ Movement.pattern | Treatment)
 
 # Apply pairwise contrasts with Sidak adjustment
 contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")

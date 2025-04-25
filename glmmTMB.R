@@ -32,12 +32,86 @@ library(ggeffects)
 library(car)
 library(emmeans)
 library(sjPlot)
+library(SYNCSA)
+library(cluster)
 
 # Categorical variable with Trap ID (unique for each trap) same as Clearing (1 or 2) and Movement pattern
 dataset6$Clearing <- as.factor(dataset6$Clearing)
 dataset6$Trap <- as.factor(dataset6$Trap)
 dataset6$Movement.pattern <- as.factor(dataset6$Movement.pattern)
 dataset6$Treatment <- as.factor(dataset6$Treatment)
+
+dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
+dataset6$Treatment <- factor(dataset6$Treatment, 
+                             levels = c("Forest interior", "Ecotone", "Retention clearcut"))
+levels(dataset6$Treatment)
+
+model9 <- glmmTMB(Number ~ Treatment*Movement.pattern+ (1 | Trap)+(1|Month), 
+                  data = dataset6, 
+                  family = nbinom2(link = "sqrt"))
+Anova(model9)
+emm <- emmeans(model9, ~ Movement.pattern*Treatment, type = "response")
+emm_df <- as.data.frame(emm)
+
+d<-ggplot(emm_df, aes(x = Treatment, y = response, 
+                      color = Movement.pattern, 
+                      group = Movement.pattern)) +
+  # Add points with dodge for separation
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  # Add error bars with dodge and custom linewidth
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), 
+                width = 0.2, 
+                linewidth = 0.8, 
+                position = position_dodge(width = 0.5)) +
+  # Add lines connecting points
+  geom_line(aes(linetype = Movement.pattern), 
+            position = position_dodge(width = 0.5),
+            linewidth = 0.8) +
+  # Customize labels
+  labs(
+    x = "Treatment",
+    y = "Total predicted N° of individuals"
+  ) +
+  # Customize Y-axis
+  scale_y_continuous(
+    limits = c(0, 6), # Adjust range if needed
+    labels = function(x) ifelse(x == 0, "0", x) 
+  ) +
+  # Customize theme
+  theme_minimal(base_family = "Arial") +
+  theme(
+    strip.text = element_text(size = 15, family = "Arial"), 
+    strip.background = element_rect(fill = "grey90"), 
+    axis.text.x = element_text(size = 12, family = "Arial", angle = -45, hjust = 0, vjust = 1),
+    axis.text.y = element_text(size = 12, family = "Arial"),
+    axis.title.x = element_text(size = 15, family = "Arial"),
+    axis.title.y = element_text(size = 15, family = "Arial", margin = margin(r = 10)),
+    legend.text = element_text(size = 12, family = "Arial"),
+    legend.title = element_blank(), 
+    legend.position = "right", 
+    legend.direction = "vertical",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks = element_line(color = "black"),
+    axis.line = element_line(color = "black") 
+  ) +
+  # Customize color and line types
+  scale_color_manual(values = c("Across" = "grey60", "Along" = "black")) + 
+  scale_linetype_manual(values = c("Across" = "dashed", "Along" = "solid"))
+
+
+tiff('Total_abundance.tiff',units="in",width=6,height=5,bg="white",res=300)
+d
+dev.off()
+
+,expand = expansion(mult = c(0))
+emmeans_results <- emmeans(model9, ~ Movement.pattern|Treatment)
+
+# Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
+contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
+summary(contrast_results)
+
+#######
 
 #Variant for Treatment*Movement.pattern+(1|Month)
 
@@ -792,95 +866,17 @@ summary(contrast_results)
     )
   
   #######################################################################################################
-  #functomp function FD package
-  library(FD)
-  library(glmmTMB)
-  library(emmeans)
-  library(dplyr)
-  library(lme4)
-  library(tidyr)
-  library(lme4)
-  library(lmerTest)  
-  library(ggplot2)
-  library(adiv)
   
-  dataset6 <- as.data.frame(dataset6)
-  
-  # Ensure there are no leading/trailing spaces in Functional.group names
-  dataset6$Functional.group <- trimws(dataset6$Functional.group)
-  
-  # Summarize abundance per functional group per site
-  abundance_matrix <- dataset6 %>%
-    group_by(Trap, Treatment, Movement.pattern, Season, Functional.group) %>%
-    summarise(TotalNumber = sum(Number), .groups = "drop") %>%
-    pivot_wider(names_from = Functional.group, values_from = TotalNumber, values_fill = 0)
-  
-  # Convert the abundance matrix to the correct format
-  abundance_data <- as.matrix(abundance_matrix[, -c(1:4)])  # Remove non-numeric columns
-  rownames(abundance_data) <- paste(abundance_matrix$Trap, 
-                                    abundance_matrix$Treatment, 
-                                    abundance_matrix$Movement.pattern, 
-                                    abundance_matrix$Season, sep = "_")
-  
-  # Create trait matrix (Identity matrix since Functional Groups are categorical)
-  functional_groups <- sort(unique(dataset6$Functional.group))  # Sort to match order
-  trait_matrix <- diag(length(functional_groups))
-  rownames(trait_matrix) <- functional_groups
-  colnames(trait_matrix) <- functional_groups
-  
-  # Ensure column names in abundance_data match row names in trait_matrix
-  matching_groups <- intersect(colnames(abundance_data), rownames(trait_matrix))
-  
-  # Filter both matrices to only include matching groups
-  abundance_data <- abundance_data[, matching_groups, drop = FALSE]
-  trait_matrix <- trait_matrix[matching_groups, matching_groups, drop = FALSE]
-  
-  # Verify if dimensions match before running functcomp
-  print(dim(trait_matrix))   # Should be (n functional groups × n functional groups)
-  print(dim(abundance_data)) # Should be (n sites × n functional groups)
-  
-  # Calculate functional composition
-  functional_composition <- functcomp(trait_matrix, abundance_data, CWM.type = "all")
-  
-  # Convert results to a dataframe and merge with metadata
-  results <- bind_cols(abundance_matrix[, 1:4], as.data.frame(functional_composition))
-  
-  # View results
-  print(results)
-  
-  fit_predator <- lm(Predator_1 ~ Treatment * Movement.pattern, data = results)
-  fit_herbivore <- lm(Herbivore_1 ~ Treatment * Movement.pattern, data = results)
-  fit_omnivore <- lm(Omnivore_1 ~ Treatment * Movement.pattern, data = results)
-  fit_detritivore <- lm(Detritivore_1 ~ Treatment * Movement.pattern, data = results)
-  fit_saproxylic <- lm(Saproxylic_1 ~ Treatment * Movement.pattern, data = results)
-  
-  #Post-hoc Pairwise comparisons with applied Sidak correction for multiple comparisons to control the family-wise error rate
-  # Compute estimated marginal means
-  emmeans_results <- emmeans(fit_saproxylic, ~ Movement.pattern | Treatment)
-  
-  # Apply pairwise contrasts with Sidak adjustment
-  contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-  summary(contrast_results)
   
   #######################################################################################################
-  #Calculating RaQ to support CANOCO5 results
-  #Extract and calculate RaoQ
-  # Load necessary libraries
-  library(SYNCSA)
-  library(dplyr)
-  library(tidyr)
-  library(cluster)
-  library(ggplot2)
-  library(lme4)
-  library(emmeans)
+  #To support results from CANOCO5, we can calculate FD Rao as rao.diversity
   
-  # 1️⃣ Ensure dataset is in correct format
   dataset6 <- as.data.frame(dataset6)
   
   # Remove leading/trailing spaces from Functional.group names
   dataset6$Functional.group <- trimws(dataset6$Functional.group)
   
-  # 2️⃣ Summarize abundance per functional group per site
+  # Summarize abundance per functional group per site
   abundance_matrix <- dataset6 %>%
     group_by(Trap, Treatment, Movement.pattern, Season, Functional.group) %>%
     summarise(TotalNumber = sum(Number), .groups = "drop") %>%
@@ -893,7 +889,7 @@ summary(contrast_results)
                                     abundance_matrix$Movement.pattern, 
                                     abundance_matrix$Season, sep = "_")
   
-  # 3️⃣ Create a trait matrix (Functional groups as categorical variables)
+  # Create a trait matrix (Functional groups as categorical variables)
   functional_groups <- sort(unique(dataset6$Functional.group))  # Unique functional groups
   trait_matrix <- diag(length(functional_groups))  # Identity matrix
   rownames(trait_matrix) <- functional_groups
@@ -904,10 +900,10 @@ summary(contrast_results)
   abundance_data <- abundance_data[, matching_groups, drop = FALSE]
   trait_matrix <- trait_matrix[matching_groups, matching_groups, drop = FALSE]
   
-  # 4️⃣ Compute Rao's Quadratic Entropy (RaoQ) using rao.diversity()
+  # Compute Rao's Quadratic Entropy (RaoQ) using rao.diversity()
   raoQ_results <- rao.diversity(abundance_data, traits = trait_matrix)
   
-  # 5️⃣ Extract RaoQ values and format results
+  # Extract RaoQ values and format results
   raoQ_values <- data.frame(
     Site = names(raoQ_results$FunRao),  # Extract site names
     RaoQ = raoQ_results$FunRao  # Extract computed RaoQ values
@@ -924,7 +920,7 @@ summary(contrast_results)
   # Merge RaoQ values with metadata from abundance_matrix
   final_results <- left_join(abundance_matrix[, 1:4], raoQ_values, by = c("Trap", "Treatment", "Movement.pattern", "Season"))
   
-  # 6️⃣ Visualization: Boxplot of RaoQ Across Treatments and Movement Patterns
+  # Visualization: Boxplot of RaoQ Across Treatments and Movement Patterns
   ggplot(final_results, aes(x = Treatment, y = RaoQ, fill = Movement.pattern)) +
     geom_boxplot() +
     facet_wrap(~ Season) +
@@ -932,15 +928,15 @@ summary(contrast_results)
     labs(title = "Rao's Quadratic Entropy across Treatments",
          y = "RaoQ", x = "Treatment")
   
-  # 7️⃣ Statistical Analysis: Mixed-Effects Model to Test RaoQ Differences
+  # Statistical Analysis: Mixed-Effects Model to Test RaoQ Differences
   fit_raoQ <- lm(RaoQ ~ Treatment*Movement.pattern, data = final_results)
   summary(fit_raoQ)
   
-  # 8️⃣ Post-Hoc Pairwise Comparisons (Tukey's Test)
+  # Post-Hoc Pairwise Comparisons (Tukey's Test)
   emmeans_raoQ <- emmeans(fit_raoQ, pairwise ~ Treatment * Movement.pattern, adjust = "tukey")
   print(emmeans_raoQ$contrasts)
   
-  # 9️⃣ Save results to CSV file (optional)
+  # Save results to CSV file (optional)
   write.csv(final_results, "RaoQ_results.csv", row.names = FALSE)
   
   emmeans_results <- emmeans(fit_raoQ, ~ Movement.pattern | Treatment)
@@ -976,74 +972,6 @@ summary(contrast_results)
   # Print the summary
   print(raoQ_with_groups)
   #######################################################################################################
-  dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
-  dataset6$Treatment <- factor(dataset6$Treatment, 
-                               levels = c("Forest interior", "Ecotone", "Retention clearcut"))
-  levels(dataset6$Treatment)
-  
-  model9 <- glmmTMB(Number ~ Treatment*Movement.pattern+ (1 | Trap)+(1|Month), 
-                    data = dataset6, 
-                    family = nbinom2(link = "sqrt"))
-  Anova(model9)
-  emm <- emmeans(model9, ~ Movement.pattern*Treatment, type = "response")
-  emm_df <- as.data.frame(emm)
-  
-  d<-ggplot(emm_df, aes(x = Treatment, y = response, 
-                        color = Movement.pattern, 
-                        group = Movement.pattern)) +
-    # Add points with dodge for separation
-    geom_point(position = position_dodge(width = 0.5), size = 3) +
-    # Add error bars with dodge and custom linewidth
-    geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), 
-                  width = 0.2, 
-                  linewidth = 0.8, 
-                  position = position_dodge(width = 0.5)) +
-    # Add lines connecting points
-    geom_line(aes(linetype = Movement.pattern), 
-              position = position_dodge(width = 0.5),
-              linewidth = 0.8) +
-    # Customize labels
-    labs(
-      x = "Treatment",
-      y = "Total predicted N° of individuals"
-    ) +
-    # Customize Y-axis
-    scale_y_continuous(
-      limits = c(0, 6), # Adjust range if needed
-      labels = function(x) ifelse(x == 0, "0", x) 
-    ) +
-    # Customize theme
-    theme_minimal(base_family = "Arial") +
-    theme(
-      strip.text = element_text(size = 15, family = "Arial"), 
-      strip.background = element_rect(fill = "grey90"), 
-      axis.text.x = element_text(size = 12, family = "Arial", angle = -45, hjust = 0, vjust = 1),
-      axis.text.y = element_text(size = 12, family = "Arial"),
-      axis.title.x = element_text(size = 15, family = "Arial"),
-      axis.title.y = element_text(size = 15, family = "Arial", margin = margin(r = 10)),
-      legend.text = element_text(size = 12, family = "Arial"),
-      legend.title = element_blank(), 
-      legend.position = "right", 
-      legend.direction = "vertical",
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.ticks = element_line(color = "black"),
-      axis.line = element_line(color = "black") 
-    ) +
-    # Customize color and line types
-    scale_color_manual(values = c("Across" = "grey60", "Along" = "black")) + 
-    scale_linetype_manual(values = c("Across" = "dashed", "Along" = "solid"))
-  
-  
-  tiff('Total_abundance.tiff',units="in",width=6,height=5,bg="white",res=300)
-  d
-  dev.off()
-  
-  ,expand = expansion(mult = c(0))
-  emmeans_results <- emmeans(model9, ~ Movement.pattern|Treatment)
-  
-  # Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
-  contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-  summary(contrast_results)
+
   
   
