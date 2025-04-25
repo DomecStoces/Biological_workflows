@@ -39,7 +39,7 @@ dataset6$Trap <- as.factor(dataset6$Trap)
 dataset6$Movement.pattern <- as.factor(dataset6$Movement.pattern)
 dataset6$Treatment <- as.factor(dataset6$Treatment)
 
-#Variant for Treatment*Movement.pattern
+#Variant for Treatment*Movement.pattern+(1|Month)
 
 # List to store models
 models <- list()
