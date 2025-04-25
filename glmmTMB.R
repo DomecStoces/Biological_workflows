@@ -132,6 +132,7 @@ species_richness_data <- dataset6 %>%
     .groups = "drop"
   )
 
+# Calculating Species richness for Variant Treatment*Movement.pattern
 # Initialize a list to store models
 models2 <- list()
 
@@ -173,9 +174,6 @@ Anova(models2[["Herbivore"]],type="III")
 emmeans_results <- emmeans(models2[["Herbivore"]], ~ Movement.pattern | Treatment)
 contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
 summary(contrast_results)
-
-
-
 
 # Graphical visualization
 library(effects)
