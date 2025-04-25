@@ -244,60 +244,27 @@ print(total_count)
 # Check for sandardised residuals
 library(DHARMa)
 
-# Example: Check residuals for the Predator group model
-predator_resid <- simulateResiduals(models[["Predator"]])
-plot(predator_resid)
+# Simulate residuals
+sim_res <- simulateResiduals(fittedModel = model6)
 
-# Filter the dataset for Detritivore
-detritivore_data <- dataset3 %>% filter(Functional.group == "Detritivore")
+# Plot diagnostics
+plot(sim_res)
 
-
-dataset6$Treatment <- relevel(dataset6$Treatment, ref = "Forest.interior") # Funkce relevel funguje pouze pro factor
-levels(datase63$Treatment)
-
-
-# 1. model s Trap
-detritivore_model <- brm(
-  Number ~ Treatment * Movement.pattern+Season + (1 |Site/Trap),
-  data = detritivore_data,
-  family = negbinomial(link = "log"),  # Negative Binomial family for overdispersed count data,
-  chains = 4, cores = 4, iter = 2000, seed = 1234)
-
-mcmc_intervals(as.array(detritivore_model), regex_pars = "^b_") + 
-  vline_0(linetype = 2)
-
-
-
-prior = c(
-  prior(normal(0, 2), class = "b"),        # Priors for fixed effects
-  prior(exponential(1), class = "sd")      # Priors for random effects
+# Run outlier test with bootstrap method
+testOutliers(sim_res, type = "bootstrap")
   
-  # Compare models 1., 2., 3.
-  loo_compare(loo(detritivore_model), loo(detritivore_model1),loo(detritivore_model2))
-  
-  
-  detritivore_data$Treatment <- as.factor(detritivore_data$Treatment)
-  detritivore_data$Treatment <- relevel(detritivore_data$Treatment, ref = "Forest.interior")
-  
-  ###############################################################################################
-  
-  #Likelihood Ratio Test (LRT) for Predictor Significance: For testing the overall significance of predictors or interactions
-  # Full model
-  model_full <- glmmTMB(Number ~ Season* Movement.pattern+ (1 | Trap), 
+#Likelihood Ratio Test (LRT) for Predictor Significance: For testing the overall significance of predictors or interactions
+# Full model
+model_full <- glmmTMB(Number ~ Season* Movement.pattern+ (1 | Trap), 
                         data = dataset6, 
                         family = nbinom2(link = "sqrt"))
   
-  Anova(model_full,type="III")
-  emmeans_results <- emmeans(model_full, ~ Movement.pattern|Treatment)
+Anova(model_full,type="III")
+emmeans_results <- emmeans(model_full, ~ Movement.pattern|Treatment)
   
-  # Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
-  contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-  summary(contrast_results)
-  
-  
-  
-  Anova(models[["Predator"]][["Autumn"]],type = "III")
-  
+# Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
+contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
+summary(contrast_results)
   
   emm <- emmeans(models[["Predator"]][["Spring"]], ~ Movement.pattern*Treatment, type = "response")
   emm_df <- as.data.frame(emm)
@@ -550,39 +517,7 @@ prior = c(
   
   # Print the overdispersion statistic
   print(overdispersion_stat)
-  
-  ############################################################################################
-  #Zřejmě finalizovaný model pro celková data abundance a species richness
-  model8 <- glmmTMB(Number ~ Treatment* Movement.pattern+ (1 | Trap)+(1|Month), 
-                    data = dataset6, 
-                    family = nbinom2(link = "sqrt"))
-  
-  
-  model4 <- glmmTMB(SpeciesRichness ~ Season*Treatment*Movement.pattern+Collembola + (1 | Trap)+(1|Month), 
-                    data = species_richness_data, 
-                    family = nbinom2(link = "sqrt"), ziformula = ~1)
-  
-  model6 <- glmmTMB(Number ~ Treatment * Movement.pattern + (1 | Trap), 
-                    data = dataset3, 
-                    family = nbinom2(link = "log"),ziformula = ~1)
-  
-  dataset3$Treatment <- as.factor(dataset3$Treatment)
-  Anova(model2, type = "III")
-  
-  tab_model(model8,
-            show.ci = TRUE, show.se = TRUE, show.aic = TRUE,
-            title = "GLMM ALL")
-  
-  library(DHARMa)
-  
-  # Simulate residuals
-  sim_res <- simulateResiduals(fittedModel = model6)
-  
-  # Plot diagnostics
-  plot(sim_res)
-  
-  # Run outlier test with bootstrap method
-  testOutliers(sim_res, type = "bootstrap")
+ 
   ############################################################################################
   #indicspecies - multipatt: Multi-level pattern analysis
   # Aggregate data
