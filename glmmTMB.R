@@ -383,7 +383,55 @@ emmeans_results <- emmeans(model_full, ~ Movement.pattern|Treatment)
 # Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
 contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
 summary(contrast_results)
+
+###############################################################################################
+#Model for interaction of Number~Movement*Treatment each separated into Season for each Functional group
+dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
+dataset6$Treatment <- factor(dataset6$Treatment, 
+                             levels = c("Forest interior", "Ecotone", "Retention clearcut"))
+levels(dataset6$Treatment)
+
+# List to store models
+models <- list()
+
+# Get unique Functional Groups
+functional_groups <- unique(dataset6$Functional.group)
+
+# Loop through each Functional Group
+for (group in functional_groups) {
+  # Filter data for the current Functional Group
+  group_data <- dataset6 %>% filter(Functional.group == group)
   
+  # Get unique Seasons
+  seasons <- unique(group_data$Season)
+  
+  # Initialize a nested list for the group
+  models[[group]] <- list()
+  
+  # Loop through each Season
+  for (season in seasons) {
+    # Filter data for the current Season
+    season_data <- group_data %>% filter(Season == season)
+    
+    # Fit the Negative Binomial GLMM
+    model <- glmmTMB(
+      Number ~ Treatment*Movement.pattern + (1 | Trap),
+      data = season_data,
+      family = nbinom2(link = "sqrt")
+    )
+    
+    # Store the model
+    models[[group]][[season]] <- model
+    
+    # Print a message after fitting the model
+    cat("Model fitted for Functional Group:", group, ", and Season:", season, "\n")
+  }
+}
+
+# Example: Access a summary for a specific Functional Group and Season
+# Replace "Detritivore" and "Spring" with your specific values
+summary(models[["Predator"]][["Spring"]])
+
   emm <- emmeans(models[["Predator"]][["Spring"]], ~ Movement.pattern*Treatment, type = "response")
   emm_df <- as.data.frame(emm)
   
