@@ -127,6 +127,32 @@ emmeans_results <- emmeans(model9, ~ Movement.pattern|Treatment)
 contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
 summary(contrast_results)
 
+##########################################################################################
+# Check for sandardised residuals
+library(DHARMa)
+
+# Simulate residuals
+sim_res <- simulateResiduals(fittedModel = model9)
+
+# Plot diagnostics
+plot(sim_res)
+
+# Run outlier test with bootstrap method
+testOutliers(sim_res, type = "bootstrap")
+
+#Likelihood Ratio Test (LRT) for Predictor Significance: For testing the overall significance of predictors or interactions
+# Full model
+model_full <- glmmTMB(Number ~ Season* Movement.pattern+ (1 | Trap), 
+                      data = dataset6, 
+                      family = nbinom2(link = "sqrt"))
+
+Anova(model_full,type="III")
+emmeans_results <- emmeans(model_full, ~ Movement.pattern|Treatment)
+
+# Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
+contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
+summary(contrast_results)
+
 #######
 
 #Variant for Treatment*Movement.pattern+(1|Month) separately for each Functional group
@@ -359,33 +385,7 @@ total_count <- sum(observation_counts$Total_Specimens)
 print(total_count)
 
 ###############################################################################################
-# Check for sandardised residuals
-library(DHARMa)
-
-# Simulate residuals
-sim_res <- simulateResiduals(fittedModel = model6)
-
-# Plot diagnostics
-plot(sim_res)
-
-# Run outlier test with bootstrap method
-testOutliers(sim_res, type = "bootstrap")
-  
-#Likelihood Ratio Test (LRT) for Predictor Significance: For testing the overall significance of predictors or interactions
-# Full model
-model_full <- glmmTMB(Number ~ Season* Movement.pattern+ (1 | Trap), 
-                        data = dataset6, 
-                        family = nbinom2(link = "sqrt"))
-  
-Anova(model_full,type="III")
-emmeans_results <- emmeans(model_full, ~ Movement.pattern|Treatment)
-  
-# Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
-contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-summary(contrast_results)
-
-###############################################################################################
-#Model for interaction of Number~Movement*Treatment each separated into Season for each Functional group
+#MODEL for interaction of Number~Movement*Treatment each separated into Season for each Functional group
 dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
 dataset6$Treatment <- factor(dataset6$Treatment, 
                              levels = c("Forest interior", "Ecotone", "Retention clearcut"))
@@ -432,10 +432,10 @@ for (group in functional_groups) {
 # Replace "Detritivore" and "Spring" with your specific values
 summary(models[["Predator"]][["Spring"]])
 
-  emm <- emmeans(models[["Predator"]][["Spring"]], ~ Movement.pattern*Treatment, type = "response")
-  emm_df <- as.data.frame(emm)
+emm <- emmeans(models[["Predator"]][["Spring"]], ~ Movement.pattern*Treatment, type = "response")
+emm_df <- as.data.frame(emm)
   
-  d <- ggplot(emm_df, aes(x = Treatment, y = response, 
+d <- ggplot(emm_df, aes(x = Treatment, y = response, 
                           color = Movement.pattern, 
                           group = Movement.pattern)) +
     # Add points with dodge for separation
@@ -481,13 +481,13 @@ summary(models[["Predator"]][["Spring"]])
     scale_color_manual(values = c("Across" = "grey60", "Along" = "black")) + 
     scale_linetype_manual(values = c("Across" = "dashed", "Along" = "solid"))
   
-  tiff('Predator_Spring.tiff', units="in", width=8, height=5, res=500)
-  d
-  dev.off()
+tiff('Predator_Spring.tiff', units="in", width=8, height=5, res=500)
+d
+dev.off()
   
-  # Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
-  contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
-  summary(contrast_results)
+# Apply pairwise contrasts with Sidak adjustment: To identify specific differences between levels of categorical predictors.
+contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
+summary(contrast_results)
 
   ###############################################################################################
   #MODEL for interaction of SpeciesRichness~Movement*Treatment divided into Season
