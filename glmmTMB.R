@@ -10,6 +10,7 @@ library(emmeans)
 library(sjPlot)
 library(SYNCSA)
 library(cluster)
+library(effects)
 
 # Histogram Number for each functional group of ground-dwelling arthropods
 ggplot(dataset2[dataset2$Functional.group == "Detritivore", ], aes(x = Abundance)) +
@@ -154,7 +155,7 @@ contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sid
 summary(contrast_results)
 
 ##########################################################################################
-#Variant for Treatment*Movement.pattern+(1|Month) separately for each Functional group
+#MODEL variant for Treatment*Movement.pattern+(1|Month) separately for each Functional group
 # List to store models
 models <- list()
 
@@ -264,7 +265,7 @@ model5 <- glmmTMB(SpeciesRichness ~ Treatment + Movement.pattern*Season + (1 | T
                   family = nbinom2(link = "log"))
 
 ##########################################################################################
-# Prepare data for modeling SpeciesRichness ~ Treatment * Movement.pattern
+# MODEL for SpeciesRichness ~ Treatment * Movement.pattern+(1|Month) for each Functional group
 species_richness_data <- dataset6 %>%
   group_by(Trap, Treatment, Month, Movement.pattern, Functional.group) %>%
   summarize(
@@ -317,8 +318,6 @@ emmeans_results <- emmeans(models2[["Herbivore"]], ~ Movement.pattern | Treatmen
 contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
 summary(contrast_results)
 
-# Graphical visualization
-library(effects)
 plot(allEffects(models[["Detritivore"]]))
 
 # Check the number of observations for "Detritivore"
@@ -488,7 +487,7 @@ contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sid
 summary(contrast_results)
 
   ###############################################################################################
-  #MODEL for interaction of SpeciesRichness~Movement*Treatment divided into Season
+  #MODEL for interaction of SpeciesRichness~Movement*Treatment divided into Season for each Functional group
   species_richness_data <- dataset6 %>%
     group_by(Trap, Treatment, Season, Movement.pattern, Functional.group) %>%
     summarize(
