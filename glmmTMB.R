@@ -1,3 +1,16 @@
+library(glmmTMB)
+library(lme4)
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggeffects)
+library(car)
+library(emmeans)
+library(sjPlot)
+library(SYNCSA)
+library(cluster)
+
 # Histogram Number for each functional group of ground-dwelling arthropods
 ggplot(dataset2[dataset2$Functional.group == "Detritivore", ], aes(x = Abundance)) +
   geom_histogram(binwidth = 1, color = "black", fill = "blue") +
@@ -37,19 +50,6 @@ overdispersion_stat <- sum(residuals(poisson_model, type = "pearson")^2) / df.re
 # Print the overdispersion statistic
 print(overdispersion_stat)
 
-library(glmmTMB)
-library(lme4)
-library(MASS)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(ggeffects)
-library(car)
-library(emmeans)
-library(sjPlot)
-library(SYNCSA)
-library(cluster)
-
 # Categorical variable with Trap ID (unique for each trap) same as Clearing (1 or 2) and Movement pattern
 dataset6$Clearing <- as.factor(dataset6$Clearing)
 dataset6$Trap <- as.factor(dataset6$Trap)
@@ -66,7 +66,7 @@ levels(dataset6$Treatment)
 model9 <- glmmTMB(Number ~ Treatment*Movement.pattern+ (1 | Trap)+(1|Month), 
                   data = dataset6, 
                   family = nbinom2(link = "sqrt"))
-Anova(model9)
+Anova(model9,type="III"))
 emm <- emmeans(model9, ~ Movement.pattern*Treatment, type = "response")
 emm_df <- as.data.frame(emm)
 
@@ -153,10 +153,8 @@ emmeans_results <- emmeans(model_full, ~ Movement.pattern|Treatment)
 contrast_results <- contrast(emmeans_results, method = "pairwise", adjust = "sidak")
 summary(contrast_results)
 
-#######
-
+##########################################################################################
 #Variant for Treatment*Movement.pattern+(1|Month) separately for each Functional group
-
 # List to store models
 models <- list()
 
