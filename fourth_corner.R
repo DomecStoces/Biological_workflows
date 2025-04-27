@@ -1,5 +1,5 @@
-#before apporaching, please load dataset into the working directory
-
+#You need version of R 4.2.2 to work
+#Before apporaching, please load datasheet into the working directory
 library(readxl)
 library(ade4)
 library(tidyr)
